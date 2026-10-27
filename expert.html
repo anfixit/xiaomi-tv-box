@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Инструкция для эксперта</title><link rel="stylesheet" href="style.css"></head>
+<body><main>
+<nav class="top"><a href="index.html">← На главную</a><a href="user.html">Простая версия</a></nav>
+<h1>🛠 Xiaomi TV Box S 2nd Gen — полная настройка</h1>
+<p>Стоковая приставка → свежая прошивка, приложения, чистка мусора, переназначение кнопок. Всё без разблокировки загрузчика: <code>verifiedbootstate = green</code> сохраняет Widevine L1 и Play Integrity (HD в стримингах).</p>
+<a class="big" href="https://drive.google.com/drive/folders/1nJqiCdpFOsZ9fGGMQp04zyxbP5MPqmWj?usp=sharing" target="_blank">Скачать всё с Google Диска</a>
+<p>Скачай папку целиком и положи куда угодно (хоть на флешку): скрипты считают пути от своего расположения. Нужны Windows, <b>7-Zip</b> (для <code>.apks</code>) и права администратора один раз.</p>
+
+<table>
+<tr><td>Кодовое имя</td><td><code>jaws</code>, модель <code>MiTV-AFKR0</code></td></tr>
+<tr><td>Платформа</td><td>Amlogic, virtual A/B</td></tr>
+<tr><td>ABI</td><td><b>armeabi-v7a</b> — 32-битный userspace, arm64-only APK не встанут</td></tr>
+<tr><td>Android</td><td>14, SDK 34</td></tr>
+</table>
+
+<h2>0. Подготовка</h2>
+<ol>
+  <li><code>tools\01-install-driver.cmd</code> — <b>от администратора</b>.</li>
+  <li>На приставке: <b>Настройки → Система → Об устройстве</b> → 7 раз по «Сборка»; затем <b>Для разработчиков → Отладка по USB</b>.</li>
+  <li>Кабель <b>USB A–A</b> (порт на приставке один). Без кабеля — сетевой adb: <code>tools\adb\adb.exe connect &lt;IP&gt;:5555</code>.</li>
+  <li><code>tools\02-device-state.cmd</code> — показывает режим (adb / fastboot / adnl). Подтверди на ТВ «Разрешить отладку», иначе <code>unauthorized</code>.</li>
+</ol>
+
+<h2>1. Прошивка</h2>
+<p>Обновления шлёт Xiaomi (<code>com.xiaomi.mitv.updateservice</code>), обычно хватает <b>Настройки → Система → Обновление</b>. Отключать не надо.</p>
+<h3>Ручной sideload</h3>
+<ol>
+  <li>Полный OTA-zip (~1 ГБ, в <code>META-INF/com/android/metadata</code> есть <code>pre-device=jaws</code> и <b>нет</b> <code>pre-build</code>) — лежит в <code>firmware\</code>.</li>
+  <li><code>tools\04-reboot-to-recovery.cmd</code> → на ТВ <b>Apply update from ADB</b>.</li>
+  <li>Перетащить zip на <code>tools\05-sideload-ota.cmd</code>. 10–20 мин, затем <b>Reboot system now</b>. Первая загрузка до 10 мин — питание не трогать.</li>
+</ol>
+<div class="warn">В recovery пульт (Bluetooth) не работает, USB-клавиатура не определяется. <b>Беспроводная мышь работает.</b></div>
+
+<h2>2. Приложения</h2>
+<p><code>tools\10-install-apps.cmd</code> ставит все <code>.apk</code>/<code>.apks</code> из <code>apps\</code> рекурсивно (папки на <code>_</code> пропускаются). Сам обходит:</p>
+<ul>
+  <li><code>.apks</code> — распаковывает и ставит через <code>install-multiple</code>;</li>
+  <li><code>INSTALL_FAILED_DEPRECATED_SDK_VERSION</code> — повтор с <code>--bypass-low-target-sdk-block</code>;</li>
+  <li><code>INSTALL_FAILED_UPDATE_INCOMPATIBLE</code> — подпись не совпала (mod-сборка vs оригинал): только удалить и поставить заново.</li>
+</ul>
+<p>По одному: <code>tools\adb\adb.exe install -r -d "файл.apk"</code>. Забрать самообновившиеся APK обратно: <code>11-pull-apps-from-box.cmd</code>.</p>
+
+<h3>Что ставить</h3>
+<table>
+<tr><th>#</th><th>Приложение</th><th>Зачем</th></tr>
+<tr><td>1</td><td><b>TorrServe MatriX</b></td><td>Торрент-движок, стримит без скачивания. Нужен Lampa/NUM/Prisma/KinoTrend</td></tr>
+<tr><td>2</td><td><b>Lampa</b></td><td>Основной каталог (TMDB + балансеры + торренты), синхронизация через CUB</td></tr>
+<tr><td>3</td><td><b>LazyMedia Deluxe</b></td><td>Самый широкий охват источников</td></tr>
+<tr><td>4</td><td><b>ViMu</b></td><td>Плеер: SMB/NFS/DLNA/WebDAV, passthrough DTS/AC3</td></tr>
+<tr><td>5</td><td>Seena</td><td>Есть спортивные каналы, свой торрент-клиент</td></tr>
+<tr><td>6</td><td>NUM</td><td>От автора TorrServe, самые быстрые торренты</td></tr>
+<tr><td>7</td><td>Prisma TV</td><td>Мод Lampa, всё встроено из коробки</td></tr>
+<tr><td>8</td><td>HDRezka</td><td>Клиент одного сайта</td></tr>
+</table>
+<p><b>Рабочая связка:</b> Lampa + TorrServe + LazyMedia + ViMu. MovieLab / KinoHD / Zona дублируют друг друга, Lampishe — форк Lampa (выбрать одно).</p>
+<div class="warn">Lampa: старые сборки ходят на <code>cub.rip</code> (домен мёртв). Актуальный — <b><code>cub.red</code></b>. Mod-сборки (в имени <code>mod</code>) нельзя обновить оригиналом поверх.</div>
+
+<h2>3. Чистка предустановленного</h2>
+<p><code>tools\12-debloat.cmd</code> (снимок пакетов сохраняет в <code>backups\</code>), откат — <code>13-restore-debloat.cmd</code>. Root не нужен: <code>pm uninstall --user 0</code> / <code>pm disable-user --user 0</code>, обратимо, сбрасывается factory reset'ом. Убирает вкладку Mi Home, телеметрию Xiaomi, бесполезные Google-довески.</p>
+<p><b>Не трогать:</b> <code>com.xiaomi.mitv.updateservice</code>, <code>com.google.android.tv.remote.service</code>, <code>com.mi.bluetooth</code>, <code>gms/gsf/vending</code>, <code>com.android.tv.settings</code>, <code>launcherx</code>, <code>com.droidlogic.*</code>, <code>mitv.service</code>, <code>katniss</code>. Чужие пресеты вслепую не применять.</p>
+<p>Плитки с облачком (Disney+, iQIYI) — реклама лаунчера: долгое нажатие → «Убрать».</p>
+
+<h2>4. Кнопки пульта</h2>
+<p><code>tools\14-remap-buttons.cmd</code> ставит Buttons Remapper и включает ему accessibility через adb. Дальше в приложении: правило → нажать кнопку → «запустить приложение».</p>
+<table>
+<tr><th>Кнопка</th><th>Keycode</th></tr>
+<tr><td>Netflix</td><td><code>BUTTON_6</code> (193)</td></tr>
+<tr><td>Prime Video</td><td><code>BUTTON_7</code> (194)</td></tr>
+<tr><td>Xiaomi TV</td><td><code>BUTTON_4</code> (191) / <code>BUTTON_5</code> (192)</td></tr>
+<tr><td>YouTube</td><td><code>BUTTON_3</code> (190)</td></tr>
+<tr><td>VK Видео</td><td><code>BUTTON_1</code> (188)</td></tr>
+</table>
+<ul>
+  <li>Проверять только физическим нажатием — <code>input keyevent</code> обходит accessibility.</li>
+  <li>Кнопка не ловится — отключи целевое приложение: <code>pm disable-user --user 0 com.netflix.ninja</code>.</li>
+  <li>Снять коды: <code>adb shell "getevent -lqc 6 &gt; /data/local/tmp/k.log"</code> (именно счётчик, не таймер — иначе буфер теряется).</li>
+</ul>
+
+<h2>5. Если не грузится</h2>
+<p><b>Главное:</b> в 9 из 10 случаев <code>Can't load Android system. Your data may be corrupt</code> лечится <b>Factory data reset</b> в этом же меню. Система цела — не монтируется <code>userdata</code> от предыдущей сборки.</p>
+<ol>
+  <li><b>Try again</b>.</li>
+  <li><b>Factory data reset</b> (мышью).</li>
+  <li>Нечем нажать — <code>06-erase-userdata.cmd</code> (стирает только userdata).</li>
+  <li><code>07-switch-ab-slot.cmd</code> — ничего не пишет, но нужен разблокированный загрузчик.</li>
+  <li><code>08-fastboot-flash-26.2.5.cmd</code> / <code>09-…25.3.3.cmd</code> — крайняя мера, нужна разблокировка (потеря green, L1 и данных).</li>
+</ol>
+<div class="warn"><b>Никогда не запускай вендорские <code>go.cmd</code>/<code>.bat</code> из архивов прошивок</b>: они в конце делают <code>fastboot flashing lock</code>. Блокировка при несовпадении разделов с <code>vbmeta</code> = твёрдый кирпич. Наши скрипты lock не делают намеренно.</div>
+<p>Recovery аппаратно: обесточить, зажать зубочисткой кнопку в отверстии снизу, подать питание, держать ~10 с. Maskrom: то же с кабелем к ПК, проверка <code>tools\adnl\adnl.exe devices</code>; <code>drivers\aml-new_factory-reset_02\go.cmd</code> обнуляет <code>metadata</code>. Последний рубеж — USB Burning Tool (нужен <code>aml_upgrade_package.img</code>, его в комплекте нет).</p>
+<p>Не видно устройство: кабель A–A не «только зарядка»; в Диспетчере устройств поставить драйвер вручную из <code>drivers\huawei-adb-interface-9-1214504</code>.</p>
+
+<h3>Почему OTA однажды убил приставку</h3>
+<p>В слоте A стояла 25.3.3 userdebug, залитая через fastboot. OTA 26.4.17 встал в слот B, но не смог расшифровать <code>userdata</code> (FBE-ключи привязаны к состоянию verified boot). Factory reset → чистый userdata → OTA прошёл штатно. Теперь обе стороны <code>user</code>, следующие обновления безопасны.</p>
+
+<h2>Все скрипты</h2>
+<table>
+<tr><th>№</th><th>Что делает</th></tr>
+<tr><td>01</td><td>USB-драйвер (админ)</td></tr>
+<tr><td>02</td><td>Режим приставки — начинать всегда отсюда</td></tr>
+<tr><td>03</td><td>Версия прошивки, verified boot</td></tr>
+<tr><td>04</td><td>Перезагрузка в recovery</td></tr>
+<tr><td>05</td><td>Sideload OTA</td></tr>
+<tr><td>06</td><td>Стереть userdata</td></tr>
+<tr><td>07</td><td>Переключить слот A/B</td></tr>
+<tr><td>08 / 09</td><td>Полная fastboot-прошивка 26.2.5 / 25.3.3</td></tr>
+<tr><td>10</td><td>Установить все приложения</td></tr>
+<tr><td>11</td><td>Забрать APK с приставки</td></tr>
+<tr><td>12 / 13</td><td>Debloat / откат</td></tr>
+<tr><td>14</td><td>Переназначение кнопок</td></tr>
+</table>
+<p class="muted">Обычному сценарию нужны только 01, 02, 10, 12, 14.</p>
+</main></body></html>
